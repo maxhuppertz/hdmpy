@@ -35,7 +35,7 @@ from sklearn.linear_model import LinearRegression as lm
 # Define a function which calculates the homoskedastic variance estimator for
 # OLS, based on X and the residuals
 def get_cov(X, e, add_intercept=True, homoskedastic=True, use_cholesky=False):
-    """ Calculates homoskedastic OLS variance estimator based on X and residuals
+    """ Calculates OLS variance estimator based on X and residuals
 
     Inputs
     X: n by k matrix, RHS variables
@@ -307,7 +307,7 @@ def rlassoEffect(x, y, d, method='double selection', I3=None, post=True,
         # does not include standard error calculations. I could have switched to
         # statsmodels instead, but sklearn seems more likely to be maintained in
         # the future.
-        var = np.array([get_cov(dr, resid)[1,1]])
+        var = np.array([get_cov(dr, resid, homoskedastic=homoskedastic)[1,1]])
 
         se = np.sqrt(var)
 
@@ -597,5 +597,7 @@ class rlassoEffects():
             self.ci = cf.loc[self.parm, :] @ np.ones(shape=(1, 2)) + ses @ fac.T
 
             self.ci.columns = pct
+        else:
+            
 
 #
