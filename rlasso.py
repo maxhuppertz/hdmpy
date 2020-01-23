@@ -15,9 +15,9 @@ import pandas as pd
 from scipy.stats import norm
 from sklearn.linear_model import LinearRegression as lm
 
-# Other modules from hdmpy
-#from help_functions import cvec, init_values
-#from LassoShooting_fit import LassoShooting_fit
+# Other parts of hdmpy
+from hdmpy.help_functions import cvec, init_values
+from hdmpy.LassoShooting_fit import LassoShooting_fit
 
 ################################################################################
 ### 2: Define functions

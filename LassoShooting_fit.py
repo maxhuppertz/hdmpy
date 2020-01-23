@@ -10,6 +10,9 @@
 # Standard Python modules
 import numpy as np
 
+# Other parts of hdmpy
+from hdmpy.help_functions import cvec, init_values
+
 ################################################################################
 ### 2: Define function
 ################################################################################

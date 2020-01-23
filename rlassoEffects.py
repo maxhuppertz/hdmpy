@@ -16,9 +16,9 @@ from scipy import linalg
 from scipy.stats import norm
 from sklearn.linear_model import LinearRegression as lm
 
-# Other modules from hdmpy
-#from help_functions import cvec
-#from rlasso import rlasso
+# Other parts of hmdpy
+from hdmpy.help_functions import cvec
+from hdmpy.rlasso import rlasso
 
 ################################################################################
 ### 2: Define functions
@@ -598,6 +598,11 @@ class rlassoEffects():
 
             self.ci.columns = pct
         else:
-            
+            e = self.est['residuals']['e']
+            v = self.est['residuals']['v']
+
+            ev = e * v
+
+            Ev2 = 1
 
 #
