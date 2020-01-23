@@ -8,3 +8,4 @@
 !*.do
 !*.py
 !*.r
+setup.py
