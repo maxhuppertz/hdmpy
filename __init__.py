@@ -13,6 +13,6 @@
 # R code works)
 from hdmpy.help_functions import cor, cvec, init_values
 from hdmpy.LassoShooting_fit import LassoShooting_fit
-from hdmpy.rlasso import lambdaCalculation, rlasso, simul
+from hdmpy.rlasso import lambdaCalculation, rlasso, simul_pen
 from hdmpy.rlassoEffects import (get_cov, rlassoEffect, rlassoEffects,
-                                 rlassoEffect_wrapper)
+                                 rlassoEffect_wrapper, simul_ci)

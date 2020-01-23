@@ -33,7 +33,7 @@ from hdmpy.LassoShooting_fit import LassoShooting_fit
 
 # Define a function to simulate distributions needed for calculating X-dependent
 # penalty terms
-def simul(n, p, W, seed=0, fix_seed=True):
+def simul_pen(n, p, W, seed=0, fix_seed=True):
     # Check whether the seed needs to be fixed
     if fix_seed:
         # Simulate with provided seed
@@ -114,7 +114,7 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
 
         # Get simulated distribution
         sim = jbl.Parallel(n_jobs=cores)(
-            jbl.delayed(simul)(n, p, tXtpsi, seed=l*20, fix_seed=fix_seed)
+            jbl.delayed(simul_pen)(n, p, tXtpsi, seed=l*20, fix_seed=fix_seed)
             for l in np.arange(R)
         )
 
@@ -160,7 +160,7 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
 
         # Get simulated distribution
         sim = jbl.Parallel(n_jobs=cores)(
-            jbl.delayed(simul)(n, p, tXehattpsi, seed=l, fix_seed=fix_seed)
+            jbl.delayed(simul_pen)(n, p, tXehattpsi, seed=l, fix_seed=fix_seed)
             for l in np.arange(R)
         )
 

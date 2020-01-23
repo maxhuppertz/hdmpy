@@ -13,7 +13,7 @@ import multiprocess as mp
 import numpy as np
 import pandas as pd
 from scipy import linalg
-from scipy.stats import norm
+from scipy.stats import multivariate_normal, norm
 from sklearn.linear_model import LinearRegression as lm
 
 # Other parts of hmdpy
@@ -165,6 +165,20 @@ def rlassoEffect_wrapper(i, x, y, d, method='double selection', I3=None,
             print(e)
 
     return res
+
+
+def simul_ci(k, Omega=None, var=None):
+    if Omega is None:
+        Omega = np.identity(k)
+
+    if var is None:
+        var = np.diag(Omega)
+
+    beta = multivariate_normal(cov=Omega).rvs()
+
+    sim = np.amax(np.abs(cvec(beta) / cvec(np.sqrt(var))))
+
+    return sim
 
 ################################################################################
 ### 2.2: Functions which are in the original R package
@@ -563,8 +577,15 @@ class rlassoEffects():
             'selection_matrix': selection_matrix
         }
 
-    def confint(self, parm=None, B=500, level=.95, joint=False):
+    def confint(self, parm=None, B=500, level=.95, joint=False,
+                par=None, corecap=None):
         self.B = B
+
+        if par is None:
+            par = self.par_any
+
+        if corecap is None:
+            corecap = self.corecap
 
         n = self.res['samplesize']
 
@@ -597,12 +618,57 @@ class rlassoEffects():
             self.ci = cf.loc[self.parm, :] @ np.ones(shape=(1, 2)) + ses @ fac.T
 
             self.ci.columns = pct
+
+            return self.ci
         else:
-            e = self.est['residuals']['e']
-            v = self.est['residuals']['v']
+            e = self.res['residuals']['e'].values
+            v = self.res['residuals']['v'].values
 
             ev = e * v
 
-            Ev2 = 1
+            Ev2 = np.mean(v**2, axis=0)
 
-#
+            Omegahat = np.zeros(shape=(self.k, self.k)) * np.nan
+
+            for j in np.arange(self.k):
+                for l in np.arange(start=j, stop=self.k):
+                    Omegahat[j,l] = Omegahat[l,j] = (
+                        1/(Ev2[j] * Ev2[l]) * np.mean(ev[:,j] * ev[:,l])
+                    )
+
+            var = np.diag(Omegahat)
+
+            # Check whether to use parallel processing
+            if par:
+                # If so, get the number of cores to use
+                cores = np.int(np.amin([mp.cpu_count(), self.corecap]))
+            else:
+                # Otherwise, use only one core (i.e. run sequentially)
+                cores = 1
+
+            sim = jbl.Parallel(n_jobs=cores)(
+                jbl.delayed(simul_ci)(k, Omegahat/self.n, var)
+                for i in np.arange(self.B)
+            )
+
+            sim = cvec(sim)
+
+            a = 1 - self.level
+
+            ab = cvec([a/2, 1 - a/2])
+
+            pct = [str(np.round(x * 100, 3)) + ' %' for x in ab[:,0]]
+
+            var = pd.DataFrame(var, index=self.parm)
+
+            hatc = np.quantile(sim, q=1-a)
+
+            ci1 = cf.loc[self.parm, :] - hatc * np.sqrt(var.loc[self.parm, :])
+
+            ci2 = cf.loc[self.parm, :] + hatc * np.sqrt(var.loc[self.parm, :])
+
+            self.ci = pd.concat([ci1.iloc[:,0], ci2.iloc[:,0]], axis=1)
+
+            self.ci.columns = pct
+
+            return self.ci
