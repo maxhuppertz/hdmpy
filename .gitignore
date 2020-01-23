@@ -1,0 +1,10 @@
+*
+!.gitattributes
+!.gitignore
+!README.md
+!LICENSE.txt
+!.gitkeep
+!*/
+!*.do
+!*.py
+!*.r
