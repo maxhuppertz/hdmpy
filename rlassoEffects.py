@@ -34,7 +34,7 @@ from hdmpy.rlasso import rlasso
 
 # Define a function which calculates the homoskedastic variance estimator for
 # OLS, based on X and the residuals
-def get_cov(X, e, add_intercept=True, homoskedastic=True, use_cholesky=False):
+def get_cov(X, e, add_intercept=True, homoskedastic=False, use_cholesky=False):
     """ Calculates OLS variance estimator based on X and residuals
 
     Inputs
@@ -162,21 +162,59 @@ def rlassoEffect_wrapper(i, x, y, d, method='double selection', I3=None,
         }
 
         if verbose:
+            print('Error encountered in rlassoEffect_wrapper()')
             print(e)
+            print()
 
     return res
 
 
-def simul_ci(k, Omega=None, var=None):
+def simul_ci(k=1, Omega=None, var=None, seed=0, fix_seed=True, verbose=False,
+             increment_if_singular=True, delta=10**(-14), max_incr=1000):
     if Omega is None:
         Omega = np.identity(k)
+    else:
+        k = Omega.shape[0]
 
     if var is None:
         var = np.diag(Omega)
+    Omega = Omega * 0
+    i = 1
 
-    beta = multivariate_normal(cov=Omega).rvs()
+    try:
+        if fix_seed:
+            beta = multivariate_normal(cov=Omega).rvs(random_state=seed)
+        else:
+            beta = multivariate_normal(cov=Omega).rvs()
+    except np.linalg.LinAlgError as e:
+        if verbose:
+            print('Error encountered in simul_ci():')
+            print(e)
+            print()
 
-    sim = np.amax(np.abs(cvec(beta) / cvec(np.sqrt(var))))
+        if increment_if_singular:
+            singular = True
+
+            while (i <= max_incr) and singular:
+                Omega = Omega + np.identity(k) * delta
+
+                try:
+                    if fix_seed:
+                        beta = (
+                            multivariate_normal(cov=Omega).rvs(
+                                random_state=seed)
+                        )
+                    else:
+                        beta = multivariate_normal(cov=Omega).rvs()
+
+                    singular=False
+                except np.linalg.LinAlgError as e:
+                    i = i + 1
+
+    if (not increment_if_singular) or (i > max_incr):
+        sim = np.nan
+    else:
+        sim = np.amax(np.abs(cvec(beta) / cvec(np.sqrt(var))))
 
     return sim
 
@@ -370,8 +408,11 @@ class rlassoEffects():
                  par_inner=False, par_any=True, corecap=np.inf, fix_seed=True,
                  verbose=False):
         # Initialize internal variables
-        self.x = x
-        self.y = y
+        if isinstance(x, pd.DataFrame) and colnames is None:
+            colnames = x.columns
+
+        self.x = np.array(x).astype(np.float32)
+        self.y = cvec(y).astype(np.float32)
 
         if index is None:
             self.index = cvec(np.arange(self.x.shape[1]))
@@ -426,6 +467,9 @@ class rlassoEffects():
         self.parm = None
         self.level = None
         self.joint = None
+        self.increment_if_singular = None
+        self.delta = None
+        self.max_incr = None
 
         # preprocessing index numerical vector
         if np.issubdtype(self.index.dtype, np.number):
@@ -464,26 +508,6 @@ class rlassoEffects():
 
         if self.colnames is None:
             self.colnames = ['V' + str(i+1) for i in range(self.x.shape[1])]
-
-        # If running in parallel, preallocating memory does nothing for me
-        #coefficients = np.zeros(shape=(k, 1)) * np.nan
-        #se = np.zeros(shape=(k, 1)) * np.nan
-        #t = np.zeros(shape=(k, 1)) * np.nan
-        #pval = np.zeros(shape=(k, 1)) * np.nan
-
-        #lasso_regs = np.empty(shape=(k, 1), dtype=np.str_)
-
-        #reside = np.zeros(shape=(p1, n)) * np.nan
-        #residv = np.zeros(shape=(p1, n)) * np.nan
-
-        #coef_mat = []
-
-        #selection_matrix = np.zeros(shape=(self.x.shape[1], k)) * np.nan
-
-        # The original code also assigns names
-        # names(coefficients) <- names(se) <- names(t) <- names(pval)
-        # <- names(lasso.regs) <- colnames(reside) <- colnames(residv)
-        # <- colnames(selection.matrix) <- colnames(x)[index]
 
         # Check whether to use parallel processing
         if self.par_outer:
@@ -578,14 +602,25 @@ class rlassoEffects():
         }
 
     def confint(self, parm=None, B=500, level=.95, joint=False,
-                par=None, corecap=None):
+                par=None, corecap=None, fix_seed=None, verbose=None,
+                increment_if_singular=True, delta=10**(-14), max_incr=1000):
         self.B = B
+
+        self.increment_if_singular = increment_if_singular
+        self.delta = delta
+        self.max_incr = max_incr
 
         if par is None:
             par = self.par_any
 
         if corecap is None:
             corecap = self.corecap
+
+        if fix_seed is None:
+            fix_seed = self.fix_seed
+
+        if verbose is None:
+            verbose = self.verbose
 
         n = self.res['samplesize']
 
@@ -647,7 +682,12 @@ class rlassoEffects():
                 cores = 1
 
             sim = jbl.Parallel(n_jobs=cores)(
-                jbl.delayed(simul_ci)(k, Omegahat/self.n, var)
+                jbl.delayed(simul_ci)(
+                    Omega=Omegahat/self.n, var=var, seed=i, fix_seed=fix_seed,
+                    verbose=verbose,
+                    increment_if_singular=self.increment_if_singular,
+                    delta=self.delta, max_incr=self.max_incr
+                )
                 for i in np.arange(self.B)
             )
 

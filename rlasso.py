@@ -190,8 +190,11 @@ class rlasso:
                  tol=10**(-5), threshold=-np.inf, par=True, corecap=np.inf,
                  fix_seed=True):
         # Initialize internal variables
-        self.x = np.array(x)
-        self.y = cvec(y)
+        if isinstance(x, pd.DataFrame) and colnames is None:
+            colnames = x.columns
+
+        self.x = np.array(x).astype(np.float32)
+        self.y = cvec(y).astype(np.float32)
 
         self.n, self.p = self.x.shape
 
@@ -304,7 +307,8 @@ class rlasso:
                     coef = np.zeros(shape=(self.p+1,1))
 
                     coef = (
-                        pd.DataFrame(coef, index=['(Intercept)']+self.colnames)
+                        pd.DataFrame(coef,
+                                     index=['(Intercept)']+list(self.colnames))
                     )
                 else:
                     intercept_value = np.mean(self.y)
@@ -447,9 +451,11 @@ class rlasso:
             intercept_value = np.nan
 
         if self.intercept:
-            beta = np.concatenate([cvec(intercept_value), coefTemp], axis=0)
+            beta = (
+                np.concatenate([cvec(intercept_value), coefTemp.values], axis=0)
+            )
 
-            beta = pd.DataFrame(beta, index=['(Intercept)']+self.colnames)
+            beta = pd.DataFrame(beta, index=['(Intercept)']+list(self.colnames))
         else:
             beta = coefTemp
 
@@ -457,10 +463,10 @@ class rlasso:
 
         self.est = {
             'coefficients': beta,
-            'beta': coefTemp,
+            'beta': pd.DataFrame(coefTemp, index=self.colnames),
             'intercept': intercept_value,
             'index': ind1,
-            'lambda': lmbda,
+            'lambda': pd.DataFrame(lmbda, index=self.colnames),
             'lambda0': lmbda0,
             'loadings': Ups1,
             'residuals': cvec(e1),
