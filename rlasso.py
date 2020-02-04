@@ -146,9 +146,9 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
 
         xehat = x * ehat
 
-        psi = cvec((xehat**2).mean(axis=0))
+        psi = cvec((xehat**2).mean(axis=0)).T
 
-        tXehattpsi = (xehat.T / np.sqrt(psi)).T
+        tXehattpsi = (xehat / ( np.ones(shape=(n,1)) @ np.sqrt(psi) ))
 
         # Check whether to use parallel processing
         if par == True:

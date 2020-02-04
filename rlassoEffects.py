@@ -34,7 +34,7 @@ from hdmpy.rlasso import rlasso
 
 # Define a function which calculates the homoskedastic variance estimator for
 # OLS, based on X and the residuals
-def get_cov(X, e, add_intercept=True, homoskedastic=False, use_cholesky=False):
+def get_cov(X, e, add_intercept=True, homoskedastic=False):
     """ Calculates OLS variance estimator based on X and residuals
 
     Inputs
@@ -63,19 +63,8 @@ def get_cov(X, e, add_intercept=True, homoskedastic=False, use_cholesky=False):
     # Calculate X'X
     XX = X.T @ X
 
-    # Check whether to use Cholesky decomposition-based inverse
-    if use_cholesky:
-        # Calculate lower Cholesky factor
-        L = linalg.cholesky(X.T @ X)
-
-        # Get its inverse
-        Linv = linalg.inv(L)
-
-        # Calculate the inverse of X'X
-        XXinv = Linv.T @ Linv
-    else:
-        # Get the inverse directly
-        XXinv = linalg.inv(X.T @ X)
+    # Calculate its inverse
+    XXinv = linalg.inv(XX)
 
     # Check whether to use homoskedastic errors
     if homoskedastic:
@@ -158,7 +147,7 @@ def rlassoEffect_wrapper(i, x, y, d, method='double selection', I3=None,
             'reside': [i, np.zeros(shape=(x.shape[0], 1)) * np.nan],
             'residv': [i, np.zeros(shape=(x.shape[0], 1)) * np.nan],
             'coef_mat': {i: []},
-            'selection_matrix': [i, np.zeros(shape=(x.shape[0], 1)) * np.nan]
+            'selection_matrix': [i, np.zeros(shape=(x.shape[1]+1, 1)) * np.nan]
         }
 
         if verbose:
@@ -169,8 +158,7 @@ def rlassoEffect_wrapper(i, x, y, d, method='double selection', I3=None,
     return res
 
 
-def simul_ci(k=1, Omega=None, var=None, seed=0, fix_seed=True, verbose=False,
-             increment_if_singular=True, delta=10**(-14), max_incr=1000):
+def simul_ci(k=1, Omega=None, var=None, seed=0, fix_seed=True, verbose=False):
     if Omega is None:
         Omega = np.identity(k)
     else:
@@ -178,43 +166,32 @@ def simul_ci(k=1, Omega=None, var=None, seed=0, fix_seed=True, verbose=False,
 
     if var is None:
         var = np.diag(Omega)
-    Omega = Omega * 0
-    i = 1
 
     try:
         if fix_seed:
-            beta = multivariate_normal(cov=Omega).rvs(random_state=seed)
+            # This is a key difference between the R and Python implementation.
+            # For some data sets, especially when k > n, scipy.stats.norm() will
+            # return an error, claiming than Omega is singular. R's
+            # MASS::mvrnorm(), on the other hand, will happily use Omega and
+            # calculate draws from it. I had to add allow_singular to get both
+            # implementations to work similarly.
+            beta = multivariate_normal(cov=Omega, allow_singular=True).rvs(
+                random_state=seed
+            )
         else:
-            beta = multivariate_normal(cov=Omega).rvs()
+            beta = multivariate_normal(cov=Omega, allow_singular=True).rvs()
+
+        sim = np.amax(np.abs(cvec(beta) / cvec(np.sqrt(var))))
+
+        # This delivers similar results to the R version
+        #sim = np.amax(np.abs(cvec(beta) / cvec(var)))
     except np.linalg.LinAlgError as e:
         if verbose:
             print('Error encountered in simul_ci():')
             print(e)
             print()
 
-        if increment_if_singular:
-            singular = True
-
-            while (i <= max_incr) and singular:
-                Omega = Omega + np.identity(k) * delta
-
-                try:
-                    if fix_seed:
-                        beta = (
-                            multivariate_normal(cov=Omega).rvs(
-                                random_state=seed)
-                        )
-                    else:
-                        beta = multivariate_normal(cov=Omega).rvs()
-
-                    singular=False
-                except np.linalg.LinAlgError as e:
-                    i = i + 1
-
-    if (not increment_if_singular) or (i > max_incr):
         sim = np.nan
-    else:
-        sim = np.amax(np.abs(cvec(beta) / cvec(np.sqrt(var))))
 
     return sim
 
@@ -467,9 +444,6 @@ class rlassoEffects():
         self.parm = None
         self.level = None
         self.joint = None
-        self.increment_if_singular = None
-        self.delta = None
-        self.max_incr = None
 
         # preprocessing index numerical vector
         if np.issubdtype(self.index.dtype, np.number):
@@ -553,14 +527,16 @@ class rlassoEffects():
         [lasso_regs.update(r['lasso_regs']) for r in res]
 
         reside = (
-            np.array([np.concatenate([cvec(r['reside'][0]), r['reside'][1]],
+            np.array([np.concatenate([cvec(r['reside'][0]),
+                                      cvec(r['reside'][1])],
                                      axis=0)[:,0]
                       for r in res])
         )
         reside = reside[reside[:,0].argsort(), 1:].T
 
         residv = (
-            np.array([np.concatenate([cvec(r['residv'][0]), r['residv'][1]],
+            np.array([np.concatenate([cvec(r['residv'][0]),
+                                      cvec(r['residv'][1])],
                                      axis=0)[:,0]
                       for r in res])
         )
@@ -571,7 +547,7 @@ class rlassoEffects():
 
         selection_matrix = (
             np.array([np.concatenate([cvec(r['selection_matrix'][0]),
-                                      r['selection_matrix'][1]],
+                                      cvec(r['selection_matrix'][1])],
                                      axis=0)[:,0]
                       for r in res])
         )
@@ -602,13 +578,8 @@ class rlassoEffects():
         }
 
     def confint(self, parm=None, B=500, level=.95, joint=False,
-                par=None, corecap=None, fix_seed=None, verbose=None,
-                increment_if_singular=True, delta=10**(-14), max_incr=1000):
+                par=None, corecap=None, fix_seed=None, verbose=None):
         self.B = B
-
-        self.increment_if_singular = increment_if_singular
-        self.delta = delta
-        self.max_incr = max_incr
 
         if par is None:
             par = self.par_any
@@ -656,6 +627,10 @@ class rlassoEffects():
 
             return self.ci
         else:
+            if self.verbose:
+                print('\nCaution: Joint confidence intervals for hdmpy are',
+                      'currently different from those of the original R',
+                      'package hdm. This is a known bug.')
             e = self.res['residuals']['e'].values
             v = self.res['residuals']['v'].values
 
@@ -684,9 +659,7 @@ class rlassoEffects():
             sim = jbl.Parallel(n_jobs=cores)(
                 jbl.delayed(simul_ci)(
                     Omega=Omegahat/self.n, var=var, seed=i, fix_seed=fix_seed,
-                    verbose=verbose,
-                    increment_if_singular=self.increment_if_singular,
-                    delta=self.delta, max_incr=self.max_incr
+                    verbose=verbose
                 )
                 for i in np.arange(self.B)
             )
