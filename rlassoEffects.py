@@ -158,6 +158,7 @@ def rlassoEffect_wrapper(i, x, y, d, method='double selection', I3=None,
     return res
 
 
+# Define a function to simulate quantiles needed for joint confidence intervals
 def simul_ci(k=1, Omega=None, var=None, seed=0, fix_seed=True, verbose=False):
     if Omega is None:
         Omega = np.identity(k)
@@ -182,10 +183,7 @@ def simul_ci(k=1, Omega=None, var=None, seed=0, fix_seed=True, verbose=False):
             beta = multivariate_normal(cov=Omega, allow_singular=True).rvs()
 
         sim = np.amax(np.abs(cvec(beta) / cvec(np.sqrt(var))))
-
-        # This delivers similar results to the R version
-        #sim = np.amax(np.abs(cvec(beta) / cvec(var)))
-    except np.linalg.LinAlgError as e:
+    except Exception as e:
         if verbose:
             print('Error encountered in simul_ci():')
             print(e)
@@ -255,7 +253,10 @@ def rlassoEffect(x, y, d, method='double selection', I3=None, post=True,
 
         resid = y - cvec(reg1.predict(x))
 
-        xi = (resid) * np.sqrt(n/(n - I.sum() - 1))
+        if I is None:
+            xi = (resid) * np.sqrt(n/(n - 1))
+        else:
+            xi = (resid) * np.sqrt(n/(n - I.sum() - 1))
 
         if I is None:
             # Fit an intercept-only model
@@ -268,7 +269,9 @@ def rlassoEffect(x, y, d, method='double selection', I3=None, post=True,
             v = d - cvec(reg2.predict(x[:, 1:]))
 
         var = (
-            (1/n) * (1/np.mean(v**2, axis=0)) * np.mean(v**2 * xi**2, axis=0)
+            (1/n)
+            * (1/np.mean(v**2, axis=0))
+            * np.mean((v**2) * (xi**2), axis=0)
             * (1/np.mean(v**2, axis=0))
         )
 
@@ -330,12 +333,16 @@ def rlassoEffect(x, y, d, method='double selection', I3=None, post=True,
 
         resid = yr - cvec(reg3.predict(dr))
 
-        # The original code uses var <- vcov(reg3)[2, 2], which is the
-        # homoskedastic covariance estimator for OLS. I wrote get_cov() to
-        # calculate that because the linear regression implementation in sklearn
-        # does not include standard error calculations. I could have switched to
-        # statsmodels instead, but sklearn seems more likely to be maintained in
-        # the future.
+        # This is a difference to the original code. The original code uses
+        # var <- vcov(reg3)[2, 2], which is the homoskedastic covariance
+        # estimator for OLS. I wrote get_cov() to calculate that, because the
+        # linear regression implementation in sklearn does not include standard
+        # error calculations. (I could have switched to statsmodels instead, but
+        # sklearn seems more likely to be maintained in the future.) I then
+        # added the option to get_cov() to calculate heteroskedastic standard
+        # errors. I believe that if the penalty term is adjusted for
+        # heteroskedasticity, heteroskedastic standard errors should also be
+        # used here, to be internally consistent.
         var = np.array([get_cov(dr, resid, homoskedastic=homoskedastic)[1,1]])
 
         se = np.sqrt(var)
@@ -350,7 +357,7 @@ def rlassoEffect(x, y, d, method='double selection', I3=None, post=True,
 
         I2 = reg2.est['index']
 
-        I = I1.astype(bool) | I2.astype(bool)
+        I = cvec(I1.astype(bool) | I2.astype(bool))
 
         #names(I) <- union(names(I1),names(I2))
 
@@ -528,7 +535,7 @@ class rlassoEffects():
 
         reside = (
             np.array([np.concatenate([cvec(r['reside'][0]),
-                                      cvec(r['reside'][1])],
+                                      r['reside'][1]],
                                      axis=0)[:,0]
                       for r in res])
         )
@@ -536,7 +543,7 @@ class rlassoEffects():
 
         residv = (
             np.array([np.concatenate([cvec(r['residv'][0]),
-                                      cvec(r['residv'][1])],
+                                      r['residv'][1]],
                                      axis=0)[:,0]
                       for r in res])
         )
@@ -545,14 +552,25 @@ class rlassoEffects():
         coef_mat = {}
         [coef_mat.update(r['coef_mat']) for r in res]
 
+        # Replaced this with the following two steps, to ensure this always
+        # results in a two dimensional array
+        #selection_matrix = (
+        #    np.array([np.concatenate([cvec(r['selection_matrix'][0]),
+        #                              r['selection_matrix'][1]],
+        #                             axis=0)[:,0]
+        #              for r in res])
+        #)
+        selection_matrix = [
+            np.concatenate([cvec(r['selection_matrix'][0]),
+                            r['selection_matrix'][1]],
+                           axis=0).T
+            for r in res
+        ]
         selection_matrix = (
-            np.array([np.concatenate([cvec(r['selection_matrix'][0]),
-                                      cvec(r['selection_matrix'][1])],
-                                     axis=0)[:,0]
-                      for r in res])
+            np.concatenate(selection_matrix, axis=0)
         )
         selection_matrix = (
-            selection_matrix[selection_matrix[:,0].argsort(), 1:].T
+            selection_matrix[selection_matrix[:,0].argsort(), 1:]
         )
 
         # Added this, to be able to add names to results objects
@@ -574,7 +592,8 @@ class rlassoEffects():
             'samplesize': self.n,
             'residuals': residuals,
             'coef_mat': coef_mat,
-            'selection_matrix': selection_matrix
+            'selection_matrix': pd.DataFrame(selection_matrix, index=idx,
+                                             columns=list(self.colnames))
         }
 
     def confint(self, parm=None, B=500, level=.95, joint=False,
