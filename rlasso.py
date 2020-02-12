@@ -321,7 +321,9 @@ class rlasso:
                     'coefficients': coef,
                     'beta': np.zeros(shape=(self.p,1)),
                     'intercept': intercept_value,
-                    'index': np.zeros(shape=(self.p,1)).astype(bool),
+                    'index': pd.DataFrame(np.zeros(shape=(self.p,1)).astype(
+                        bool),
+                                          index=self.colnames),
                     'lambda': lmbda,
                     'lambda0': lmbda0,
                     'loadings': Ups0,
