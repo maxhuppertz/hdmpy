@@ -114,8 +114,9 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
 
         # Get simulated distribution
         sim = jbl.Parallel(n_jobs=cores)(
-            jbl.delayed(simul_pen)(n, p, tXtpsi, seed=l*20, fix_seed=fix_seed)
-            for l in np.arange(R)
+            jbl.delayed(simul_pen)(
+                n, p, tXtpsi, seed=l*20, fix_seed=fix_seed
+            ) for l in np.arange(R)
         )
 
         # Convert it to a proper column vector
@@ -160,8 +161,9 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
 
         # Get simulated distribution
         sim = jbl.Parallel(n_jobs=cores)(
-            jbl.delayed(simul_pen)(n, p, tXehattpsi, seed=l, fix_seed=fix_seed)
-            for l in np.arange(R)
+            jbl.delayed(simul_pen)(
+                n, p, tXehattpsi, seed=l*20, fix_seed=fix_seed
+            ) for l in np.arange(R)
         )
 
         # Convert it to a proper column vector

@@ -677,8 +677,8 @@ class rlassoEffects():
 
             sim = jbl.Parallel(n_jobs=cores)(
                 jbl.delayed(simul_ci)(
-                    Omega=Omegahat/self.n, var=var, seed=i, fix_seed=fix_seed,
-                    verbose=verbose
+                    Omega=Omegahat/self.n, var=var, seed=i*20,
+                    fix_seed=fix_seed, verbose=verbose
                 )
                 for i in np.arange(self.B)
             )
