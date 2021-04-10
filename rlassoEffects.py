@@ -520,7 +520,7 @@ class rlassoEffects():
             res = jbl.Parallel(n_jobs=cores)(
                 jbl.delayed(rlassoEffect_wrapper)(
                     i, x=np.delete(self.x, i, axis=1), y=self.y, d=self.x[:, i],
-                    method=self.method, I3=np.delete(self.I3, i, axis=0),
+                    method=self.method, I3=self.I3,
                     post=self.post, colnames_d=self.colnames[i],
                     colnames_x=[c for j, c in enumerate(self.colnames) if j!=i],
                     intercept=self.intercept, model=self.model,
