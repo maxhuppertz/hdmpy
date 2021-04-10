@@ -481,11 +481,12 @@ class rlassoEffects():
         else:
             raise ValueError('Argument index has an invalid type')
 
-        if self.method == 'double selection':
+        if (self.method == 'double selection') and (self.I3 is not None):
             I3ind = cvec([i for i, b in enumerate(self.I3) if b])
 
-            if len([x for x in I3ind[:,0] if x in self.index[:,0]]) > 0:
-                raise ValueError('I3 and index must not overlap!')
+            if I3ind != []:
+                if len([x for x in I3ind[:,0] if x in self.index[:,0]]) > 0:
+                    raise ValueError('I3 and index must not overlap!')
 
         if self.colnames is None:
             self.colnames = ['V' + str(i+1) for i in range(self.x.shape[1])]
@@ -498,7 +499,7 @@ class rlassoEffects():
             # Otherwise, use only one core (i.e. run sequentially)
             cores = 1
 
-        if self.method == 'double selection':
+        if (self.I3 is not None):
             res = jbl.Parallel(n_jobs=cores)(
                 jbl.delayed(rlassoEffect_wrapper)(
                     i, x=np.delete(self.x, i, axis=1), y=self.y, d=self.x[:, i],
