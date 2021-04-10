@@ -498,23 +498,42 @@ class rlassoEffects():
             # Otherwise, use only one core (i.e. run sequentially)
             cores = 1
 
-        res = jbl.Parallel(n_jobs=cores)(
-            jbl.delayed(rlassoEffect_wrapper)(
-                i, x=np.delete(self.x, i, axis=1), y=self.y, d=self.x[:, i],
-                method=self.method, I3=np.delete(self.I3, i, axis=0),
-                post=self.post, colnames_d=self.colnames[i],
-                colnames_x=[c for j, c in enumerate(self.colnames) if j != i],
-                intercept=self.intercept, model=self.model,
-                homoskedastic=self.homoskedastic,
-                X_dependent_lambda=self.X_dependent_lambda,
-                lambda_start=self.lambda_start, c=self.c, gamma=self.gamma,
-                numSim=self.numSim, numIter=self.numIter, tol=self.tol,
-                threshold=self.threshold, par=self.par_inner,
-                corecap=self.corecap, fix_seed=self.fix_seed,
-                verbose=self.verbose
+        if self.method == 'double selection':
+            res = jbl.Parallel(n_jobs=cores)(
+                jbl.delayed(rlassoEffect_wrapper)(
+                    i, x=np.delete(self.x, i, axis=1), y=self.y, d=self.x[:, i],
+                    method=self.method, I3=np.delete(self.I3, i, axis=0),
+                    post=self.post, colnames_d=self.colnames[i],
+                    colnames_x=[c for j, c in enumerate(self.colnames) if j!=i],
+                    intercept=self.intercept, model=self.model,
+                    homoskedastic=self.homoskedastic,
+                    X_dependent_lambda=self.X_dependent_lambda,
+                    lambda_start=self.lambda_start, c=self.c, gamma=self.gamma,
+                    numSim=self.numSim, numIter=self.numIter, tol=self.tol,
+                    threshold=self.threshold, par=self.par_inner,
+                    corecap=self.corecap, fix_seed=self.fix_seed,
+                    verbose=self.verbose
+                )
+                for i in self.index[:,0]
             )
-            for i in self.index[:,0]
-        )
+        else:
+            res = jbl.Parallel(n_jobs=cores)(
+                jbl.delayed(rlassoEffect_wrapper)(
+                    i, x=np.delete(self.x, i, axis=1), y=self.y, d=self.x[:, i],
+                    method=self.method, I3=np.delete(self.I3, i, axis=0),
+                    post=self.post, colnames_d=self.colnames[i],
+                    colnames_x=[c for j, c in enumerate(self.colnames) if j!=i],
+                    intercept=self.intercept, model=self.model,
+                    homoskedastic=self.homoskedastic,
+                    X_dependent_lambda=self.X_dependent_lambda,
+                    lambda_start=self.lambda_start, c=self.c, gamma=self.gamma,
+                    numSim=self.numSim, numIter=self.numIter, tol=self.tol,
+                    threshold=self.threshold, par=self.par_inner,
+                    corecap=self.corecap, fix_seed=self.fix_seed,
+                    verbose=self.verbose
+                )
+                for i in self.index[:,0]
+            )
 
         # Convert collection of parallel results into usable results sorted by
         # their index
