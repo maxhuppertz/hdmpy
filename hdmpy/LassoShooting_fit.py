@@ -118,3 +118,5 @@ def LassoShooting_fit(x, y, lmbda, maxIter=1000, optTol=10**(-5),
 
     # Return the weights, history of weights, and iteration counter
     return {'coefficients': w, 'coef.list': wp, 'num.it': m}
+
+

@@ -454,7 +454,7 @@ class rlassoEffects():
 
         # preprocessing index numerical vector
         if np.issubdtype(self.index.dtype, np.number):
-            self.index = self.index.astype(np.int)
+            self.index = self.index.astype(int)
 
             if not (np.all(self.index[:,0] < self.x.shape[1])
                     and (len(self.index) <= self.x.shape[1])):
@@ -494,7 +494,7 @@ class rlassoEffects():
         # Check whether to use parallel processing
         if self.par_outer:
             # If so, get the number of cores to use
-            cores = np.int(np.amin([mp.cpu_count(), self.corecap]))
+            cores = int(np.amin([mp.cpu_count(), self.corecap]))
         else:
             # Otherwise, use only one core (i.e. run sequentially)
             cores = 1
@@ -622,48 +622,48 @@ class rlassoEffects():
 
         if par is None:
             par = self.par_any
-
+        
         if corecap is None:
             corecap = self.corecap
-
+        
         if fix_seed is None:
             fix_seed = self.fix_seed
-
+        
         if verbose is None:
             verbose = self.verbose
-
+        
         n = self.res['samplesize']
-
+        
         k = p1 = len(self.res['coefficients'])
-
+        
         cf = self.res['coefficients']
-
+        
         pnames = cf.index.values
-
+        
         self.parm = parm
         self.level = level
         self.joint = joint
-
+        
         if self.parm is None:
             self.parm = pnames
         elif np.issubdtype(self.parm, np.number):
             self.parm = pnames[parm]
-
+        
         if not self.joint:
             a = (1 - self.level) / 2
-
+            
             a = cvec([a, 1 - a])
-
+            
             fac = norm.ppf(a)
-
+            
             pct = [str(np.round(x * 100, 3)) + ' %' for x in a[:,0]]
-
+            
             ses = self.res['se'].loc[self.parm, :]
-
+            
             self.ci = cf.loc[self.parm, :] @ np.ones(shape=(1, 2)) + ses @ fac.T
-
+            
             self.ci.columns = pct
-
+            
             return self.ci
         else:
             if self.verbose:
@@ -672,29 +672,29 @@ class rlassoEffects():
                       'package hdm. This is a known bug.')
             e = self.res['residuals']['e'].values
             v = self.res['residuals']['v'].values
-
+            
             ev = e * v
-
+            
             Ev2 = np.mean(v**2, axis=0)
-
+            
             Omegahat = np.zeros(shape=(self.k, self.k)) * np.nan
-
+            
             for j in np.arange(self.k):
                 for l in np.arange(start=j, stop=self.k):
                     Omegahat[j,l] = Omegahat[l,j] = (
                         1/(Ev2[j] * Ev2[l]) * np.mean(ev[:,j] * ev[:,l])
                     )
-
+            
             var = np.diag(Omegahat)
-
+            
             # Check whether to use parallel processing
             if par:
                 # If so, get the number of cores to use
-                cores = np.int(np.amin([mp.cpu_count(), self.corecap]))
+                cores = int(np.amin([mp.cpu_count(), self.corecap]))
             else:
                 # Otherwise, use only one core (i.e. run sequentially)
                 cores = 1
-
+            
             sim = jbl.Parallel(n_jobs=cores)(
                 jbl.delayed(simul_ci)(
                     Omega=Omegahat/self.n, var=var, seed=i*20,
@@ -702,25 +702,27 @@ class rlassoEffects():
                 )
                 for i in np.arange(self.B)
             )
-
+            
             sim = cvec(sim)
-
+            
             a = 1 - self.level
-
+            
             ab = cvec([a/2, 1 - a/2])
-
+            
             pct = [str(np.round(x * 100, 3)) + ' %' for x in ab[:,0]]
-
+            
             var = pd.DataFrame(var, index=self.parm)
-
+            
             hatc = np.quantile(sim, q=1-a)
-
+            
             ci1 = cf.loc[self.parm, :] - hatc * np.sqrt(var.loc[self.parm, :])
-
+            
             ci2 = cf.loc[self.parm, :] + hatc * np.sqrt(var.loc[self.parm, :])
-
+            
             self.ci = pd.concat([ci1.iloc[:,0], ci2.iloc[:,0]], axis=1)
-
+            
             self.ci.columns = pct
-
+            
             return self.ci
+
+
