@@ -107,7 +107,7 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
         # Check whether to use parallel processing
         if par == True:
             # If so, get the number of cores to use
-            cores = np.int(np.amin([mp.cpu_count(), corecap]))
+            cores = int(np.amin([mp.cpu_count(), corecap]))
         else:
             # Otherwise, use only one core (i.e. run sequentially)
             cores = 1
@@ -154,7 +154,7 @@ def lambdaCalculation(homoskedastic=False, X_dependent_lambda=False,
         # Check whether to use parallel processing
         if par == True:
             # If so, get the number of cores to use
-            cores = np.int(np.amin([mp.cpu_count(), corecap]))
+            cores = int(np.amin([mp.cpu_count(), corecap]))
         else:
             # Otherwise, use only one core (i.e. run sequentially)
             cores = 1
@@ -492,3 +492,5 @@ class rlasso:
         self.est['tss'] = ((self.y - np.mean(self.y))**2).sum()
         self.est['rss'] = (self.est['residuals']**2).sum()
         self.est['dev'] = self.y - np.mean(self.y)
+
+

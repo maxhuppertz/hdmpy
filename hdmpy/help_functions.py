@@ -125,3 +125,5 @@ def init_values(X, y, number=5, intercept=True):
 
     # Return the residuals and coefficients
     return {'residuals': residuals, 'coefficients': coefficients}
+
+
