@@ -4,39 +4,30 @@ The hdmpy package is a Python port of parts of the R package [hdm](https://githu
 
 ## Installation
 
-### Using uv (recommended)
-
-- Create and use a virtual environment, and install dependencies:
+### Using pip (recommended)
 
 ```bash
-uv venv
-source .venv/bin/activate  # or `uv venv --python 3.11 && source .venv/bin/activate`
-uv pip install -e .[dev]
+pip install hdmpy
 ```
 
-- Build a wheel and install locally [optional]:
+### Using uv
 
 ```bash
-uv build
-uv pip install dist/*.whl
+uv add hdmpy
 ```
 
 ### From source (pip)
 
-1) Clone the repository
-
-2) Build and install using a modern build backend:
-
 ```bash
-python -m pip install --upgrade pip build
-python -m build
-python -m pip install dist/*.whl
+git clone https://github.com/maxhuppertz/hdmpy.git
+cd hdmpy
+pip install .
 ```
 
 ### Editable install for development (pip)
 
 ```bash
-python -m pip install -e .[dev]
+pip install -e .[dev]
 ```
 
 After installation, you can import the package:
